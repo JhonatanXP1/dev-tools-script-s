@@ -1,0 +1,4 @@
+#Directorio de archivos de I/O (datos, logs, resultados)
+# Contiene archivos generados dinámicamente que no deben versionarse
+Inputs&Ouputs/*
+!Inputs&Ouputs/.gitkeep
