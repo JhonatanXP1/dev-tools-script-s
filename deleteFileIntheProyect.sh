@@ -1,7 +1,7 @@
 
+# ./deleteFileIntheProyect.sh  param@1"Lista de archivos a eliminar" parametro2@"ubicacion del proyecto"
 dirName="$1"
 dirObjetivo="$2"
-
 LISTA="$dirName"
 BASE_DIR="$dirObjetivo"
 
