@@ -71,4 +71,4 @@ sort -u "$OUT_FILE" -o "$OUT_FILE"
 echo "✅ Listado generado en: $OUT_FILE"
 
 #Ejemplo:
-# ~/bin/GetRutasCommitsLimpio.sh -r main -d ~/bin -f ~/bin/idComits.txt
+# ~/bin/GetRutasCommitsLimpio.sh -r main -d "$HOME/bin/Inputs&Ouputs/" -f "$HOME/bin/Inputs&Ouputs/idcommits"

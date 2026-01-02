@@ -1,3 +1,7 @@
+
+dirName="$1"
+dirObjetivo="$2"
+
 LISTA="$dirName"
 BASE_DIR="$dirObjetivo"
 

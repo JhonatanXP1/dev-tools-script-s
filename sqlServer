@@ -1,0 +1,107 @@
+#!/bin/bash
+#Script para iniciar contenedores de SQL-Server segun version, Objetivo facilitar el inicio de los contenedores si navegar a traves de los directorios
+#Para que funcione globalmente, mover a /usr/local/bin y dar permisos de ejecucion chmod +x sqlServer
+#Ejemplo;
+# sudo cp ./bin/sqlServer /usr/local/bin/sqlServer
+#Uso de zfz
+ROUTESERVICE="$HOME/Documentos/net/sqlSever/" #<-- La direccion determina el conjunto de imagenes de sqlServer.
+
+#Colores
+WHITE='\033[1;37m'
+BRIGHT_BLACK='\033[0;90m'    
+BRIGHT_RED='\033[0;91m'        
+BRIGHT_GREEN='\033[0;92m'    
+BRIGHT_YELLOW='\033[0;93m'   
+BRIGHT_BLUE='\033[0;94m'     
+BRIGHT_MAGENTA='\033[0;95m'  
+BRIGHT_CYAN='\033[0;96m'     
+BRIGHT_WHITE='\033[0;97m'    
+NC='\033[0m'
+
+#fuction
+start_sql() {
+
+cd "$ROUTESERVICE" || {
+    echo -e "${BRIGHT_RED}Error:${NC} ${WHITE}No se pudo cambiar al directorio${NC} ${BRIGHT_YELLOW}\"$ROUTESERVICE\"${NC} ❌"
+    exit 1 
+    }
+
+mapfile -t folders < <(find . -maxdepth 1 -mindepth 1 -type d -printf "%P\n" | sort)
+
+if command -v fzf >/dev/null 2>&1; then
+ if ((${#folders[@]} == 0)); then
+    echo -e "${BRIGHT_YELLOW}No encontré carpetas dentro de:${NC} ${WHITE}$ROUTESERVICE${NC} ❌"
+    exit 1
+  fi
+  
+   echo -e "${BRIGHT_BLUE}Selecciona Version del Servicio de SQL-Server (flechas / escribe para filtrar):${NC}"
+
+    choice=$(
+        printf "%s\n" "${folders[@]}" "Salir" \
+        | fzf --prompt="SQL Server > " --height=40% --border --reverse
+    )
+
+    if [[ -z "$choice" || "$choice" == "Salir" ]]; then
+        echo -e "${BRIGHT_YELLOW}Saliendo...${NC}"
+        exit 0
+    fi
+
+    cd "$ROUTESERVICE/$choice" || {
+        echo -e "${BRIGHT_RED}Error:${NC} ${WHITE}No se pudo cambiar al directorio${NC} ${BRIGHT_YELLOW}\"$ROUTESERVICE/$choice\"${NC} ❌"
+        exit 1
+    }
+
+    echo -e "${BRIGHT_GREEN}Iniciando contenedor de SQL-Server en la version:${NC} ${BRIGHT_YELLOW}$choice${NC} 🚀"
+    docker compose start
+    echo -e "${BRIGHT_GREEN}Contenedor iniciado correctamente.${NC} ✅"
+else
+    echo -e "${BRIGHT_BLUE}Selecciona Version del Servicio de SQL-Server 🆙:${NC}"
+    PS3="Selecciona una opción (1-$((${#folders[@]}+1))): "
+    select folder in "${folders[@]}" "Salir"; do 
+        if [[ "$folder" == "Salir" ]]; then 
+            echo -e "${BRIGHT_YELLOW}Saliendo...${NC} 👋" 
+            exit 0 
+        elif [[ -n "$folder" ]]; then 
+            cd "$ROUTESERVICE$folder" || { 
+                echo -e "${BRIGHT_RED}Error:${NC} ${WHITE}No se pudo cambiar al directorio${NC} ${BRIGHT_YELLOW}\"$ROUTESERVICE$folder\"${NC} ❌" 
+                exit 1 
+            } 
+            echo -e "${BRIGHT_GREEN}Iniciando contenedor de SQL-Server en la version:${NC} ${BRIGHT_YELLOW}$folder${NC} 🚀"
+            docker compose start 
+            echo -e "${BRIGHT_GREEN}Contenedor iniciado correctamente.${NC} ✅" 
+            exit 0 
+        else 
+            echo -e "${BRIGHT_RED}Opción inválida. Por favor, selecciona una opción válida.${NC} ❌" 
+        fi 
+    done
+fi
+}
+
+sql_Seacrh(){
+    docker ps 
+}
+
+main() {
+    if ! command -v yq &> /dev/null; then
+        echo -e "${BRIGHT_RED}No esta Instalado yq ${NC} 🚫"
+        echo -e "${BRIGHT_RED}Es Necesario para el uso de esta herramienta.${NC} 🚸"
+        exit 1  # ← Sale CON ERROR si falta fzf
+    fi
+
+    cmd="${1,,}" 
+    case "$cmd" in
+        init | start | run)
+            start_sql
+            ;;  
+        ls | list | active)
+            sql_Seacrh
+            ;;
+        *)
+        echo -e "${BRIGHT_RED}Uso:${NC} ${WHITE}$0 init${NC}"
+        echo -e "${BRIGHT_YELLOW}Comandos disponibles:${NC}"
+        echo -e "  ${BRIGHT_GREEN}init${NC} - Inicia SQL Server"
+        exit 1
+            ;;
+    esac
+}
+main "$@"
