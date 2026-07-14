@@ -72,7 +72,7 @@ process_path() {
     fi
   fi
 }
-chmod +x ~/bin/popGitLisArchivos.sh
+
 # 3) Leer lista (archivo o stdin)
 if [[ -n "$LIST_FILE" ]]; then
   while IFS= read -r line || [[ -n "$line" ]]; do

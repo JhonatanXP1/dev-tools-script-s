@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+# Orquesta GetRutasCommitsLimpio.sh + popGitLisArchivos.sh en un solo paso interactivo.
+# Para que funcione globalmente, mover a /usr/local/bin y dar permisos de ejecucion chmod +x getFileCommit
+# Ejemplo:
+# sudo cp ./bin/getFileCommit /usr/local/bin/getFileCommit
+# Uso:
+#   getFileCommit            -> flujo normal
+#   getFileCommit config     -> fuerza reconfigurar el directorio base de trabajo
+set -euo pipefail
+
+# Colores
+BRIGHT_RED='\033[0;91m'
+BRIGHT_GREEN='\033[0;92m'
+BRIGHT_YELLOW='\033[0;93m'
+BRIGHT_BLUE='\033[0;94m'
+BRIGHT_CYAN='\033[0;96m'
+NC='\033[0m'
+
+# GetRutasCommitsLimpio.sh y popGitLisArchivos.sh viven siempre en ~/bin,
+# sin importar desde dónde se invoque este script (ej. /usr/local/bin).
+BIN_DIR="$HOME/bin"
+GET_RUTAS_SCRIPT="$BIN_DIR/GetRutasCommitsLimpio.sh"
+POP_GIT_SCRIPT="$BIN_DIR/popGitLisArchivos.sh"
+
+CONFIG_DIR="$HOME/.config/getFileCommit"
+CONFIG_FILE="$CONFIG_DIR/config"
+
+# --- Instala fzf si falta (solo Debian/Ubuntu o RedHat/Fedora) ---
+ensure_fzf() {
+  command -v fzf >/dev/null 2>&1 && return 0
+
+  echo -e "${BRIGHT_YELLOW}No se encontró 'fzf' instalado.${NC}"
+  read -rp "¿Deseas instalarlo ahora? (s/n): " ans
+  case "$ans" in
+    s|S|si|Si|SI|y|Y|yes|YES) ;;
+    *)
+      echo -e "${BRIGHT_RED}Error:${NC} se requiere 'fzf' para continuar. ❌"
+      exit 1
+      ;;
+  esac
+
+  local os_id="" os_id_like=""
+  if [[ -f /etc/os-release ]]; then
+    os_id="$(. /etc/os-release && echo "$ID")"
+    os_id_like="$(. /etc/os-release && echo "${ID_LIKE:-}")"
+  fi
+
+  if [[ "$os_id" == "debian" || "$os_id" == "ubuntu" || "$os_id_like" == *debian* ]]; then
+    echo -e "${BRIGHT_BLUE}Instalando fzf con apt...${NC}"
+    sudo apt-get update -y && sudo apt-get install -y fzf
+  elif [[ "$os_id" == "rhel" || "$os_id" == "centos" || "$os_id" == "fedora" || "$os_id" == "rocky" || "$os_id" == "almalinux" || "$os_id_like" == *rhel* || "$os_id_like" == *fedora* ]]; then
+    echo -e "${BRIGHT_BLUE}Instalando fzf con dnf/yum...${NC}"
+    if command -v dnf >/dev/null 2>&1; then
+      sudo dnf install -y fzf
+    else
+      sudo yum install -y fzf
+    fi
+  else
+    echo -e "${BRIGHT_RED}Error:${NC} instalación automática solo soportada en Debian/Ubuntu o RedHat/Fedora. Instala 'fzf' manualmente. ❌"
+    exit 1
+  fi
+
+  command -v fzf >/dev/null 2>&1 || {
+    echo -e "${BRIGHT_RED}Error:${NC} la instalación de 'fzf' falló. ❌"
+    exit 1
+  }
+  echo -e "${BRIGHT_GREEN}✅ fzf instalado correctamente.${NC}"
+}
+
+# --- Requisitos ---
+command -v git >/dev/null 2>&1 || {
+  echo -e "${BRIGHT_RED}Error:${NC} se requiere 'git' instalado. ❌"
+  exit 1
+}
+ensure_fzf
+
+for script in "$GET_RUTAS_SCRIPT" "$POP_GIT_SCRIPT"; do
+  [[ -x "$script" ]] || {
+    echo -e "${BRIGHT_RED}Error:${NC} no se encontró o no es ejecutable: $script ❌"
+    exit 1
+  }
+done
+
+# --- Debe ejecutarse dentro de un repo Git ---
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo -e "${BRIGHT_RED}Error:${NC} ejecuta este script dentro de un repositorio Git. ❌"
+  exit 1
+fi
+
+REPO_NAME="$(basename "$(git rev-parse --show-toplevel)")"
+
+# --- Reconfigurar si se pide explícitamente ---
+if [[ "${1:-}" == "config" ]]; then
+  rm -f "$CONFIG_FILE"
+fi
+
+mkdir -p "$CONFIG_DIR"
+
+# --- Cargar o pedir el directorio base de trabajo (primera vez) ---
+if [[ -f "$CONFIG_FILE" ]]; then
+  # shellcheck source=/dev/null
+  source "$CONFIG_FILE"
+fi
+
+if [[ -z "${WORK_DIR:-}" || ! -d "$WORK_DIR" ]]; then
+  echo -e "${BRIGHT_BLUE}Primera vez usando getFileCommit.${NC}"
+  read -rp "Ruta absoluta del directorio base de trabajo (guardará idcommits/listado.txt): " WORK_DIR
+  WORK_DIR="${WORK_DIR/#\~/$HOME}"
+  if [[ "$WORK_DIR" != /* ]]; then
+    echo -e "${BRIGHT_RED}Error:${NC} debes indicar una ruta absoluta (que empiece con /). ❌"
+    exit 1
+  fi
+  mkdir -p "$WORK_DIR"
+  printf 'WORK_DIR=%q\n' "$WORK_DIR" > "$CONFIG_FILE"
+  echo -e "${BRIGHT_GREEN}✅ Configuración guardada en:${NC} $CONFIG_FILE"
+fi
+
+# --- Selección de rama/ref con fzf (locales + remotas) ---
+echo -e "${BRIGHT_BLUE}Repositorio:${NC} $REPO_NAME"
+mapfile -t BRANCHES < <(
+  { git branch --format='%(refname:short)'
+    git branch -r --format='%(refname:short)' | grep -v ' -> '
+  } | sort -u
+)
+
+if [[ ${#BRANCHES[@]} -eq 0 ]]; then
+  echo -e "${BRIGHT_RED}Error:${NC} no se encontraron ramas en el repositorio. ❌"
+  exit 1
+fi
+
+# 'main' local siempre primero en la lista, si existe
+if printf '%s\n' "${BRANCHES[@]}" | grep -qx "main"; then
+  mapfile -t BRANCHES < <(
+    printf '%s\n' "main"
+    printf '%s\n' "${BRANCHES[@]}" | grep -vx "main"
+  )
+fi
+
+echo -e "${BRIGHT_CYAN}Selecciona la rama de la cual extraer:${NC}"
+REF=$(printf '%s\n' "${BRANCHES[@]}" | fzf --header="ENTER: seleccionar rama | ESC: cancelar")
+
+if [[ -z "$REF" ]]; then
+  echo -e "${BRIGHT_YELLOW}No se seleccionó ninguna rama. Cancelando.${NC}"
+  exit 0
+fi
+
+# --- Selección de la lista de commits: reusar una existente en WORK_DIR o crear una nueva ---
+NEW_ENTRY="+ Nueva selección de commits (git log)"
+FILE_ICON="📄"
+mapfile -t EXISTING_FILES < <(find "$WORK_DIR" -maxdepth 1 -type f -printf '%f\n' | sort)
+
+FILE_ENTRIES=()
+for f in "${EXISTING_FILES[@]}"; do
+  FILE_ENTRIES+=("$FILE_ICON $f")
+done
+
+echo -e "${BRIGHT_CYAN}Selecciona una lista de commits ya existente en $WORK_DIR, o crea una nueva:${NC}"
+CHOICE=$(printf '%s\n' "$NEW_ENTRY" "${FILE_ENTRIES[@]}" | fzf --header="ENTER: confirmar | ESC: cancelar")
+
+if [[ -z "$CHOICE" ]]; then
+  echo -e "${BRIGHT_YELLOW}No se seleccionó nada. Cancelando.${NC}"
+  exit 0
+fi
+
+# --- Directorio de la corrida (listado.txt, e idcommits.txt si se crea uno nuevo) ---
+RUN_DIR="$WORK_DIR/${REPO_NAME}_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$RUN_DIR"
+
+if [[ "$CHOICE" == "$NEW_ENTRY" ]]; then
+  echo -e "${BRIGHT_CYAN}Selecciona uno o varios commits de '$REF' (TAB para multi-selección, ENTER para confirmar):${NC}"
+  SELECTED=$(git log "$REF" --pretty=format:'%h %ad %s' --date=short -- \
+    | fzf --multi \
+          --preview="git show --stat --color=always {1}" \
+          --preview-window=right:60% \
+          --header="TAB: seleccionar/deseleccionar | ENTER: confirmar | ESC: cancelar")
+
+  if [[ -z "$SELECTED" ]]; then
+    echo -e "${BRIGHT_YELLOW}No se seleccionó ningún commit. Cancelando.${NC}"
+    exit 0
+  fi
+
+  IDS_FILE="$RUN_DIR/idcommits.txt"
+  awk '{print $1}' <<< "$SELECTED" > "$IDS_FILE"
+  echo -e "${BRIGHT_GREEN}✅ Lista de commits guardada en:${NC} $IDS_FILE"
+else
+  FILE_NAME="${CHOICE#"$FILE_ICON "}"
+  IDS_FILE="$WORK_DIR/$FILE_NAME"
+  echo -e "${BRIGHT_GREEN}✅ Usando lista de commits existente:${NC} $IDS_FILE"
+fi
+
+# --- Paso 1: generar listado.txt ---
+"$GET_RUTAS_SCRIPT" -r "$REF" -d "$RUN_DIR" -f "$IDS_FILE"
+
+LISTADO_FILE="$RUN_DIR/listado.txt"
+if [[ ! -s "$LISTADO_FILE" ]]; then
+  echo -e "${BRIGHT_RED}Error:${NC} no se generaron rutas de archivo para los commits seleccionados. ❌"
+  exit 1
+fi
+
+# --- Paso 2: pedir nombre de subcarpeta destino (dentro de WORK_DIR) y exportar archivos ---
+read -rp "Nombre de la carpeta donde se alojarán los archivos extraídos (dentro de $WORK_DIR): " DEST_NAME
+DEST_NAME="${DEST_NAME#/}"
+if [[ -z "$DEST_NAME" || "$DEST_NAME" == *..* || "$DEST_NAME" == /* ]]; then
+  echo -e "${BRIGHT_RED}Error:${NC} indica solo un nombre de carpeta válido (sin '..' ni ruta absoluta). ❌"
+  exit 1
+fi
+DEST_DIR="$WORK_DIR/$DEST_NAME"
+
+"$POP_GIT_SCRIPT" -r "$REF" -d "$DEST_DIR" -f "$LISTADO_FILE"
+
+echo -e "${BRIGHT_GREEN}🏁 Proceso completo.${NC}"
+echo -e "  ${BRIGHT_BLUE}Commits:${NC}  $IDS_FILE"
+echo -e "  ${BRIGHT_BLUE}Listado:${NC}  $LISTADO_FILE"
+echo -e "  ${BRIGHT_BLUE}Archivos:${NC} $DEST_DIR"

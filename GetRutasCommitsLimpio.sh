@@ -40,6 +40,12 @@ if [ -z "$REPO_PATH" ]; then
   exit 3
 fi
 
+# Validar que la ref exista
+if ! git -C "$REPO_PATH" rev-parse --verify "$REF" >/dev/null 2>&1; then
+  echo "ERROR: La ref '$REF' no existe en el repositorio" >&2
+  exit 4
+fi
+
 # Recorrer hashes
 while IFS= read -r hash || [ -n "$hash" ]; do
   [[ -z "$hash" ]] && continue
@@ -53,13 +59,13 @@ while IFS= read -r hash || [ -n "$hash" ]; do
 
   case "$type" in
     commit)
-      git -C "$REPO_PATH" diff-tree --no-commit-id --name-only -r "$hash" >> "$OUT_FILE"
+      git -C "$REPO_PATH" diff-tree --no-commit-id --name-only -r --root "$hash" >> "$OUT_FILE"
       ;;
     tree)
       git -C "$REPO_PATH" ls-tree -r --name-only "$hash" >> "$OUT_FILE"
       ;;
     blob)
-      git -C "$REPO_PATH" rev-list --all --objects | awk -v h="$hash" '$1==h { $1=""; sub(/^ /,""); print }' >> "$OUT_FILE"
+      git -C "$REPO_PATH" rev-list "$REF" --objects | awk -v h="$hash" '$1==h { $1=""; sub(/^ /,""); print }' >> "$OUT_FILE"
       ;;
   esac
 

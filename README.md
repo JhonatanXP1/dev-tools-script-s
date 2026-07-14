@@ -8,6 +8,7 @@ Colección de scripts Bash para tareas comunes de Git, gestión de archivos y co
 |---|---|
 | [`deleteFileIntheProyect.sh`](docs/deleteFileIntheProyect.md) | Elimina archivos de un proyecto a partir de una lista |
 | [`duplicidadCodigo.sh`](docs/duplicidadCodigo.md) | Detecta duplicación interna de código entre dos commits |
+| [`getFileCommit`](docs/getFileCommit.md) | Selecciona commits con fzf y exporta sus archivos en un solo paso |
 | [`GetRutasCommits.sh`](docs/GetRutasCommits.md) | Lista archivos de commits/trees/blobs con metadata detallada |
 | [`GetRutasCommitsLimpio.sh`](docs/GetRutasCommitsLimpio.md) | Extrae rutas de archivos de commits de forma limpia |
 | [`popGitLisArchivos.sh`](docs/popGitLisArchivos.md) | Exporta archivos desde una rama de Git a un directorio local |
@@ -19,6 +20,7 @@ Colección de scripts Bash para tareas comunes de Git, gestión de archivos y co
 ~/bin/
 ├── deleteFileIntheProyect.sh
 ├── duplicidadCodigo.sh
+├── getFileCommit
 ├── GetRutasCommits.sh
 ├── GetRutasCommitsLimpio.sh
 ├── popGitLisArchivos.sh
@@ -34,5 +36,5 @@ Colección de scripts Bash para tareas comunes de Git, gestión de archivos y co
 - `bash` >= 4.0
 - `git`
 - `docker` / `docker compose` — solo para `sqlServer`
-- `fzf` — opcional, mejora la selección interactiva en `sqlServer`
+- `fzf` — opcional en `sqlServer`; requerido en `getFileCommit`
 - `yq` — requerido por `sqlServer`
