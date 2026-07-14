@@ -7,19 +7,19 @@ Orquesta `GetRutasCommitsLimpio.sh` y `popGitLisArchivos.sh` en un solo flujo in
 ```bash
 # Ejecutar desde dentro del repositorio Git objetivo
 cd ~/proyectos/miapp
-~/bin/getFileCommit
+/ruta/al/repo-clonado/getFileCommit
 
 # Forzar reconfigurar el directorio base de trabajo
-~/bin/getFileCommit config
+/ruta/al/repo-clonado/getFileCommit config
 ```
 
 Para invocarlo globalmente como `getFileCommit`, instalar un **symlink** (no una copia) en el PATH:
 
 ```bash
-sudo ln -s "$HOME/bin/getFileCommit" /usr/local/bin/getFileCommit
+sudo ln -s "/ruta/al/repo-clonado/getFileCommit" /usr/local/bin/getFileCommit
 ```
 
-El script se autolocaliza: resuelve su propia ruta real (`readlink -f`) y busca ahí mismo a `GetRutasCommitsLimpio.sh`/`popGitLisArchivos.sh`, sin importar en qué carpeta esté clonado el repositorio ni el usuario que lo use. Por eso es importante usar `ln -s` y no `cp` — una copia rompe esa autolocalización porque deja de apuntar al repositorio real.
+El script se autolocaliza: resuelve su propia ruta real (`readlink -f`) y busca ahí mismo a `GetRutasCommitsLimpio.sh`/`popGitLisArchivos.sh`, sin importar en qué carpeta esté clonado el repositorio ni el usuario que lo use. `/ruta/al/repo-clonado` es solo un placeholder: el nombre real de la carpeta no importa (por ejemplo, un `git clone` del repo `dev-tools-script-s` sin renombrar crea `~/dev-tools-script-s/`, no `~/bin/`) — lo único que importa es que los tres scripts sigan viviendo juntos ahí dentro. Por eso también es importante usar `ln -s` y no `cp` — una copia rompe esa autolocalización porque deja de apuntar al repositorio real.
 
 ### Si ya lo instalaste con `cp` por error
 
@@ -30,7 +30,7 @@ El propio script lo detecta: al ejecutarlo, el bucle que verifica `GetRutasCommi
 sudo rm /usr/local/bin/getFileCommit
 
 # 2. Reinstalar como symlink apuntando al repo clonado
-sudo ln -s "$HOME/bin/getFileCommit" /usr/local/bin/getFileCommit
+sudo ln -s "/ruta/al/repo-clonado/getFileCommit" /usr/local/bin/getFileCommit
 ```
 
 Alternativa sin instalar nada en el PATH: invocarlo directo desde el repo clonado (`./getFileCommit`), donde también funciona porque no hay symlink que resolver.
