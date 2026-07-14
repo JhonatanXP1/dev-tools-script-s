@@ -13,13 +13,27 @@ cd ~/proyectos/miapp
 ~/bin/getFileCommit config
 ```
 
-Para invocarlo globalmente como `getFileCommit` (igual que `sqlServer`), instalarlo en el PATH:
+Para invocarlo globalmente como `getFileCommit`, instalar un **symlink** (no una copia) en el PATH:
 
 ```bash
-sudo cp ~/bin/getFileCommit /usr/local/bin/getFileCommit
+sudo ln -s "$HOME/bin/getFileCommit" /usr/local/bin/getFileCommit
 ```
 
-`GetRutasCommitsLimpio.sh` y `popGitLisArchivos.sh` se siguen resolviendo siempre en `~/bin`, sin importar desde dónde se invoque `getFileCommit` — así que esos dos scripts deben permanecer ahí.
+El script se autolocaliza: resuelve su propia ruta real (`readlink -f`) y busca ahí mismo a `GetRutasCommitsLimpio.sh`/`popGitLisArchivos.sh`, sin importar en qué carpeta esté clonado el repositorio ni el usuario que lo use. Por eso es importante usar `ln -s` y no `cp` — una copia rompe esa autolocalización porque deja de apuntar al repositorio real.
+
+### Si ya lo instalaste con `cp` por error
+
+El propio script lo detecta: al ejecutarlo, el bucle que verifica `GetRutasCommitsLimpio.sh`/`popGitLisArchivos.sh` falla con un error explícito ("¿Instalaste getFileCommit con 'cp' en vez de 'ln -s'?"), porque `BIN_DIR` termina apuntando a la carpeta donde quedó la copia (ej. `/usr/local/bin`) en vez de al repositorio real. Para corregirlo:
+
+```bash
+# 1. Borrar la copia
+sudo rm /usr/local/bin/getFileCommit
+
+# 2. Reinstalar como symlink apuntando al repo clonado
+sudo ln -s "$HOME/bin/getFileCommit" /usr/local/bin/getFileCommit
+```
+
+Alternativa sin instalar nada en el PATH: invocarlo directo desde el repo clonado (`./getFileCommit`), donde también funciona porque no hay symlink que resolver.
 
 ## Requisitos
 

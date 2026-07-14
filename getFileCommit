@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Orquesta GetRutasCommitsLimpio.sh + popGitLisArchivos.sh en un solo paso interactivo.
-# Para que funcione globalmente, mover a /usr/local/bin y dar permisos de ejecucion chmod +x getFileCommit
+# Este script se autolocaliza: encuentra a sus hermanos en la misma carpeta del
+# repositorio clonado, sin importar el usuario ni la ruta donde lo hayan clonado.
+# Para invocarlo globalmente como 'getFileCommit', instala un symlink (NO una copia,
+# o perderías la autolocalización) en un directorio del PATH:
 # Ejemplo:
-# sudo cp ./bin/getFileCommit /usr/local/bin/getFileCommit
+#   chmod +x ./getFileCommit
+#   sudo ln -s "$(pwd)/getFileCommit" /usr/local/bin/getFileCommit
 # Uso:
 #   getFileCommit            -> flujo normal
 #   getFileCommit config     -> fuerza reconfigurar el directorio base de trabajo
@@ -16,9 +20,11 @@ BRIGHT_BLUE='\033[0;94m'
 BRIGHT_CYAN='\033[0;96m'
 NC='\033[0m'
 
-# GetRutasCommitsLimpio.sh y popGitLisArchivos.sh viven siempre en ~/bin,
-# sin importar desde dónde se invoque este script (ej. /usr/local/bin).
-BIN_DIR="$HOME/bin"
+# GetRutasCommitsLimpio.sh y popGitLisArchivos.sh viven en la misma carpeta del
+# repositorio que este script. Resolvemos symlinks (readlink -f) para que, aunque
+# se invoque vía un symlink en /usr/local/bin, siga encontrando la carpeta real
+# del repositorio clonado (funciona para cualquier usuario, en cualquier ruta).
+BIN_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 GET_RUTAS_SCRIPT="$BIN_DIR/GetRutasCommitsLimpio.sh"
 POP_GIT_SCRIPT="$BIN_DIR/popGitLisArchivos.sh"
 
@@ -77,6 +83,7 @@ ensure_fzf
 for script in "$GET_RUTAS_SCRIPT" "$POP_GIT_SCRIPT"; do
   [[ -x "$script" ]] || {
     echo -e "${BRIGHT_RED}Error:${NC} no se encontró o no es ejecutable: $script ❌"
+    echo -e "${BRIGHT_YELLOW}¿Instalaste getFileCommit con 'cp' en vez de 'ln -s'?${NC} Si lo copiaste fuera del repositorio, pierde la referencia a sus scripts hermanos. Instálalo con un symlink (ver encabezado del script)."
     exit 1
   }
 done
